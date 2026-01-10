@@ -1,0 +1,17 @@
+name: Despertador do Crawler
+
+on:
+  schedule:
+    # O cron do GitHub é em UTC. 
+    # '0 * * * *' roda a cada hora cheia.
+    - cron: '0 * * * *'
+  workflow_dispatch: # Permite que você rode manualmente pelo site do GitHub
+
+jobs:
+  acordar-vercel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chamando a URL da Vercel
+        run: |
+          curl -X GET "https://licita-saas.vercel.app/api/cron/sync-tudo" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
