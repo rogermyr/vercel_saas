@@ -12,7 +12,7 @@ from flask import Flask, jsonify
 from pathlib import Path
 from dotenv import load_dotenv
 
-# --- CARREGAMENTO DE CONFIGURAÇÕES ---
+# --- CARREGAMENTO DE CONFIGURAÇÕES ----
 base_dir = Path(__file__).resolve().parent
 env_path = base_dir.parent / '.env'
 load_dotenv(dotenv_path=env_path)
