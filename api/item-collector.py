@@ -89,8 +89,6 @@ def processar_licitacao_worker(db_engine, identificador_pncp, payload):
     finally:
         session.close()
 
-
-@app.route('/api/cron/items', methods=['GET'])
 def handle_item_collector():
     engine = create_engine(DB_CONNECTION_STRING, pool_size=5, max_overflow=10)
     Base.metadata.create_all(engine)

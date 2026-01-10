@@ -173,7 +173,6 @@ def run_process(db_url):
         for future in as_completed(futures):
             future.result() # Garante que esperamos o fim de cada modalidade
 
-@app.route('/api/cron/crawler', methods=['GET'])
 def handle_crawler():
     run_process(DB_CONNECTION_STRING)
     return jsonify({"status": "success", "message": "Crawler finished"}), 200

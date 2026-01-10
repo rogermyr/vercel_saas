@@ -1,8 +1,12 @@
 import os
+import logging
 from flask import Flask, jsonify
-# Importamos as funções de execução dos seus arquivos originais
+# Importa as funções (certifique-se de ter o __init__.py na pasta api)
 from api.crawler import run_process as run_crawler
 from api.item_collector import handle_item_collector as run_items
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -13,13 +17,21 @@ def health_check():
 @app.route('/api/cron/sync-tudo')
 def sync_tudo():
     logger.info("🔄 Iniciando Sincronização Geral")
-    # 1. Roda o Crawler
-    run_crawler(os.getenv("DATABASE_URL"))
-    # 2. Roda o Coletor de Itens
-    run_items()
-    
-    return jsonify({"status": "success", "message": "Crawler e Items finalizados"}), 200
-
-if __name__ == "__main__":
-    app.run()
-    # app.run(debug=True)
+    try:
+        # Pega a URL do banco das variáveis de ambiente da Vercel
+        db_url = os.getenv("DATABASE_URL")
+        
+        # 1. Executa o Crawler
+        resultado_crawler = run_crawler(db_url)
+        
+        # 2. Executa o Coletor
+        resultado_items = run_items()
+        
+        return jsonify({
+            "status": "success", 
+            "crawler": resultado_crawler,
+            "items": resultado_items
+        }), 200
+    except Exception as e:
+        logger.error(f"❌ Erro: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
