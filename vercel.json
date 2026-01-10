@@ -1,12 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/crawler",
-      "schedule": "0 3 * * *" 
-    },
-    {
-      "path": "/api/cron/items",
-      "schedule": "0 4 * * *"
+      "path": "/api/cron/sync-tudo",
+      "schedule": "0 3 * * *"
     }
   ]
 }

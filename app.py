@@ -10,13 +10,15 @@ app = Flask(__name__)
 def health_check():
     return "PNCP Crawler Online", 200
 
-@app.route('/api/cron/crawler')
-def route_crawler():
-    return run_crawler(os.getenv("DATABASE_URL"))
-
-@app.route('/api/cron/items')
-def route_items():
-    return run_items()
+@app.route('/api/cron/sync-tudo')
+def sync_tudo():
+    logger.info("🔄 Iniciando Sincronização Geral")
+    # 1. Roda o Crawler
+    run_crawler(os.getenv("DATABASE_URL"))
+    # 2. Roda o Coletor de Itens
+    run_items()
+    
+    return jsonify({"status": "success", "message": "Crawler e Items finalizados"}), 200
 
 if __name__ == "__main__":
     app.run()
