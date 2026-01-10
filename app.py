@@ -22,6 +22,8 @@ def sync_tudo():
     auth_header = request.headers.get('Authorization')
     if auth_header != f"Bearer {os.getenv('CRON_SECRET')}":
         abort(401) # Erro de não autorizado
+    logger.info(f"Header recebido: {auth_header}")
+    logger.info(f"Token no sistema: Bearer {os.getenv('CRON_SECRET')}")
     logger.info("🔄 Iniciando Sincronização Geral")
     try:
         db_url = os.getenv("DATABASE_URL")
