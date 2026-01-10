@@ -1,8 +1,8 @@
 import os
 from flask import Flask, jsonify
 # Importamos as funções de execução dos seus arquivos originais
-from crawler import run_process as run_crawler
-from item_collector import handle_item_collector as run_items
+from api.crawler import run_process as run_crawler
+from api.item_collector import handle_item_collector as run_items
 
 app = Flask(__name__)
 
