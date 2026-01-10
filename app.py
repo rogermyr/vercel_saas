@@ -16,6 +16,11 @@ app = Flask(__name__)
 def health_check():
     return "PNCP Crawler Online", 200
 
+@app.route('/debug-vars')
+def debug_vars():
+    # Isso vai te mostrar se a Vercel carregou a variável
+    return f"Status da Secret: {'Configurada' if os.getenv('CRON_SECRET') else 'Vazia'}"
+
 @app.route('/api/cron/sync-tudo')
 def sync_tudo():
     # Verifica se a senha enviada pelo GitHub é igual à que está na Vercel
