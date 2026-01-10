@@ -20,19 +20,16 @@ def health_check():
 def sync_tudo():
     logger.info("🔄 Iniciando Sincronização Geral")
     try:
-        # Pega a URL do banco das variáveis de ambiente da Vercel
         db_url = os.getenv("DATABASE_URL")
         
-        # 1. Executa o Crawler
-        resultado_crawler = run_crawler(db_url)
-        
-        # 2. Executa o Coletor
-        resultado_items = run_items()
+        # Rodamos as funções. 
+        # Se elas retornam um Response do Flask, usamos .get_json() ou apenas chamamos
+        run_crawler(db_url)
+        run_items()
         
         return jsonify({
             "status": "success", 
-            "crawler": resultado_crawler,
-            "items": resultado_items
+            "message": "Crawler e Items processados com sucesso. Verifique o banco de dados."
         }), 200
     except Exception as e:
         logger.error(f"❌ Erro: {str(e)}")
