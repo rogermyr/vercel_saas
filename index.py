@@ -1,1 +1,0 @@
-from crawler import app # Importa o objeto 'app' do seu crawler.py
