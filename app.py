@@ -5,6 +5,8 @@ from flask import Flask, jsonify
 from api.crawler import run_process as run_crawler
 from api.item_collector import handle_item_collector as run_items
 
+# Configura o logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
