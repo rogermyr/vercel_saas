@@ -11,7 +11,12 @@ jobs:
   acordar-vercel:
     runs-on: ubuntu-latest
     steps:
-      - name: Chamando a URL da Vercel
+      - name: Chamando a URL da Vercel - Sync Tudo
         run: |
           curl -X GET "https://licita-saas.vercel.app/api/cron/sync-tudo" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      
+      - name: Chamando a URL da Vercel - Process Silver
+        run: |
+          curl -X GET "https://licita-saas.vercel.app/api/cron/process-silver" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
