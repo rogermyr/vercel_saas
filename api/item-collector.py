@@ -89,8 +89,6 @@ def processar_licitacao_worker(db_engine, identificador_pncp, payload):
     finally:
         session.close()
 
-# --- FLASK APP ---
-app = Flask(__name__)
 
 @app.route('/api/cron/items', methods=['GET'])
 def handle_item_collector():
@@ -125,24 +123,3 @@ def handle_item_collector():
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         engine.dispose()
-
-if __name__ == "__main__":
-    print(f"🖥️ Iniciando Coletor Local em Modo Drenagem...")
-    
-    with app.app_context():
-        while True:
-            # Chama a função que processa um lote
-            response, status_code = handle_item_collector()
-            data = response.get_json()
-            
-            if data.get("status") == "idle":
-                print("✨ Fila vazia! Todos os itens foram coletados.")
-                break
-            
-            if status_code != 200:
-                print(f"❌ Erro no processamento: {data.get('message')}")
-                break
-                
-            print(f"✅ Lote de {data.get('processed')} licitações finalizado. Buscando próximo...")
-            # Pequena pausa para não sobrecarregar a conexão
-            time.sleep(1)

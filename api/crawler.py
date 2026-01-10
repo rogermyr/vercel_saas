@@ -157,8 +157,6 @@ class PNCPCrawler:
         if max_data_encontrada:
             self.atualizar_progresso(codigo_modalidade, max_data_encontrada)
 
-# --- FLASK APP ---
-app = Flask(__name__)
 
 def run_process(db_url):
     logger.info("🚀 Iniciando processamento de threads.")
@@ -179,13 +177,3 @@ def run_process(db_url):
 def handle_crawler():
     run_process(DB_CONNECTION_STRING)
     return jsonify({"status": "success", "message": "Crawler finished"}), 200
-
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) == 1:
-        print(f"🖥️ Execução Local. DB: {DB_CONNECTION_STRING}")
-        with app.app_context():
-            run_process(DB_CONNECTION_STRING)
-            print("🎉 Fim da carga local.")
-    else:
-        app.run(debug=True)
