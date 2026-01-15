@@ -47,17 +47,35 @@ class BronzeItem(Base):
 # --- FUNÇÕES AUXILIARES ---
 
 def baixar_itens_api(identificador_pncp, cnpj, ano, sequencial):
-    url = f"https://pncp.gov.br/api/pncp/v1/orgaos/{cnpj}/compras/{ano}/{sequencial}/itens"
+    url = f"https://pncp.gov.br/api/pncp/v1/orgaos/{cnpj}/pca/{ano}/{sequencial}/itens"
     itens_para_inserir = []
     try:
-        # Simplificado para o MVP: busca apenas a primeira página de itens
-        # (A maioria das licitações tem menos de 50 itens)
-        response = requests.get(url, params={"pagina": 1}, timeout=20)
-        if response.status_code == 200:
+        pagina = 1
+        while True:
+            response = requests.get(url, timeout=20)
+            if response.status_code != 200:
+                logger.error(f"Erro na página {pagina} para {identificador_pncp}: Status {response.status_code}")
+                break
+
             data = response.json()
             lista = data if isinstance(data, list) else data.get('data', [])
+
+            # Adiciona os itens da página atual
             for item in lista:
                 itens_para_inserir.append(BronzeItem(licitacao_identificador=identificador_pncp, payload=item))
+
+            # Verifica se há mais páginas
+            total_paginas = data.get('totalPaginas', 1) if isinstance(data, dict) else 1
+            if pagina >= total_paginas:
+                break
+
+            pagina += 1
+
+            # Pequeno delay para evitar rate limiting
+            time.sleep(0.1)
+
+        logger.info(f"Coletados {len(itens_para_inserir)} itens de {pagina} página(s) para {identificador_pncp}")
+
     except Exception as e:
         logger.error(f"Erro API Itens {identificador_pncp}: {e}")
     return itens_para_inserir
