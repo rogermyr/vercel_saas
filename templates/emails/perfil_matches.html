@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novas Licitações - {{ nome_perfil }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            margin: -30px -30px 20px -30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .profile-name {
+            font-size: 18px;
+            margin-top: 10px;
+            opacity: 0.9;
+        }
+        .summary {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 25px;
+            border-left: 4px solid #667eea;
+        }
+        .licitacao {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: #fafafa;
+            transition: box-shadow 0.3s;
+        }
+        .licitacao:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .licitacao-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .licitacao-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+        .info-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+        .tags {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .tag {
+            background-color: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .valor-destaque {
+            font-size: 18px;
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+        .btn-view {
+            display: inline-block;
+            background-color: #667eea;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-weight: 500;
+        }
+        .btn-view:hover {
+            background-color: #5568d3;
+        }
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        @media only screen and (max-width: 600px) {
+            .licitacao-info {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔔 Novas Licitações Disponíveis</h1>
+            <div class="profile-name">Perfil: {{ nome_perfil }}</div>
+        </div>
+
+        <div class="summary">
+            <strong>Olá, {{ nome_usuario }}!</strong><br>
+            Encontramos <strong>{{ licitacoes|length }}</strong> nova(s) licitação(ões) que correspondem aos critérios do seu perfil <strong>{{ nome_perfil }}</strong>.
+        </div>
+
+        {% if licitacoes %}
+            {% for licitacao in licitacoes %}
+            <div class="licitacao">
+                <div class="licitacao-title">
+                    {{ licitacao.objeto_compra or 'Sem descrição' }}
+                </div>
+
+                <div class="licitacao-info">
+                    <div class="info-item">
+                        <span class="info-label">Órgão</span>
+                        <span class="info-value">{{ licitacao.orgao_razao_social or 'Não informado' }}</span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Localização</span>
+                        <span class="info-value">
+                            {{ licitacao.municipio_nome or 'N/A' }}{% if licitacao.uf_sigla %} - {{ licitacao.uf_sigla }}{% endif %}
+                        </span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Modalidade</span>
+                        <span class="info-value">{{ licitacao.modalidade_nome or 'Não informada' }}</span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Situação</span>
+                        <span class="info-value">{{ licitacao.situacao_nome or 'Não informada' }}</span>
+                    </div>
+
+                    {% if licitacao.valor_total_estimado %}
+                    <div class="info-item">
+                        <span class="info-label">Valor Estimado</span>
+                        <span class="info-value valor-destaque">
+                            {{ licitacao.valor_total_estimado|currency_br }}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    {% if licitacao.data_encerramento %}
+                    <div class="info-item">
+                        <span class="info-label">Encerramento</span>
+                        <span class="info-value">
+                            {{ licitacao.data_encerramento.strftime('%d/%m/%Y às %H:%M') if licitacao.data_encerramento else 'Não informado' }}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    <div class="info-item">
+                        <span class="info-label">Identificador</span>
+                        <span class="info-value" style="font-size: 11px; font-family: monospace;">
+                            {{ licitacao.identificador_pncp }}
+                        </span>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-label">Data Publicação</span>
+                        <span class="info-value">
+                            {{ licitacao.data_publicacao.strftime('%d/%m/%Y') if licitacao.data_publicacao else 'Não informado' }}
+                        </span>
+                    </div>
+                </div>
+
+                {% if licitacao.matched_items %}
+                <div style="margin-top: 20px; padding: 15px; background-color: #f0f4ff; border-radius: 6px; border-left: 3px solid #667eea;">
+                    <div style="font-size: 13px; font-weight: 600; color: #667eea; margin-bottom: 10px;">
+                        ✓ Itens Coincidentes ({{ licitacao.matched_items|length }})
+                    </div>
+                    {% for item in licitacao.matched_items %}
+                    <div style="margin-bottom: 12px; padding: 10px; background-color: white; border-radius: 4px;">
+                        {% if item.numero_item %}
+                        <div style="font-size: 11px; color: #999; margin-bottom: 4px;">
+                            Item {{ item.numero_item }}{% if item.categoria_item %} - {{ item.categoria_item }}{% endif %}
+                        </div>
+                        {% endif %}
+                        <div style="font-size: 13px; color: #333; line-height: 1.5;">
+                            {{ item.descricao|safe }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% elif licitacao.objeto_matched %}
+                <div style="margin-top: 15px; padding: 10px; background-color: #fff3cd; border-radius: 4px; font-size: 12px; color: #856404;">
+                    ℹ️ Match encontrado no título da licitação
+                </div>
+                {% endif %}
+
+                {% if licitacao.matched_keywords %}
+                <div class="tags">
+                    <span style="font-size: 12px; color: #666; margin-right: 5px;">Termos encontrados:</span>
+                    {% for keyword in licitacao.matched_keywords[:5] %}
+                        <span class="tag">{{ keyword }}</span>
+                    {% endfor %}
+                    {% if licitacao.matched_keywords|length > 5 %}
+                        <span class="tag">+{{ licitacao.matched_keywords|length - 5 }} mais</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <a href="https://pncp.gov.br/app/editais/{{ licitacao.orgao_cnpj }}/{{ licitacao.ano_compra }}/{{ licitacao.sequencial }}" 
+                   class="btn-view" 
+                   target="_blank">
+                    Ver Detalhes no PNCP →
+                </a>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-results">
+                <p>Nenhuma nova licitação encontrada no momento.</p>
+            </div>
+        {% endif %}
+
+        <div class="footer">
+            <p>
+                Este e-mail foi enviado automaticamente pelo sistema de monitoramento de licitações.<br>
+                Você está recebendo este e-mail porque tem o perfil <strong>{{ nome_perfil }}</strong> ativo.
+            </p>
+            <p style="margin-top: 15px; color: #999;">
+                Para gerenciar suas preferências de notificação, acesse o painel da plataforma.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/process-silver",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/send-email-notifications",
+      "schedule": "0 9 * * *"
     }
   ]
 }

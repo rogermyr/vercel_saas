@@ -21,10 +21,9 @@ DB_CONNECTION_STRING = os.getenv("DATABASE_URL")
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
 
-# --- CONFIGURAÇÕES DO LOTE (CRÍTICO PARA VERCEL) ---
-# Na Vercel, use lotes pequenos (10-20) para não estourar o timeout de 60s
-# No WSL (Local), você pode aumentar para 100 ou 500
-LIMIT_LOTE = 20 if os.getenv("VERCEL") else 100
+# --- CONFIGURAÇÕES DO LOTE ---
+# Otimizado para servidor dedicado (Hetzner) - lotes maiores
+LIMIT_LOTE = 500
 MAX_WORKERS = 10
 
 Base = declarative_base()
@@ -40,19 +39,30 @@ class BronzeLicitacao(Base):
 class BronzeItem(Base):
     __tablename__ = 'bronze_pncp_itens'
     id = Column(Integer, primary_key=True)
-    licitacao_identificador = Column(String, index=True) 
+    licitacao_identificador = Column(String, index=True)
     payload = Column(JSONB, nullable=False)
+    status_processamento = Column(String, default='PENDING', index=True)
     ingested_at = Column(DateTime, server_default=func.now())
 
 # --- FUNÇÕES AUXILIARES ---
 
 def baixar_itens_api(identificador_pncp, cnpj, ano, sequencial):
-    url = f"https://pncp.gov.br/api/pncp/v1/orgaos/{cnpj}/pca/{ano}/{sequencial}/itens"
+    url = f"https://pncp.gov.br/api/pncp/v1/orgaos/{cnpj}/compras/{ano}/{sequencial}/itens"
     itens_para_inserir = []
-    try:
-        pagina = 1
-        while True:
-            response = requests.get(url, timeout=20)
+    pagina = 1
+    tamanho_pagina = 50
+    headers = {'User-Agent': 'Crawler-SaaS/1.0', 'Accept': 'application/json'}
+
+    while True:
+        params = {
+            "pagina": pagina,
+            "tamanhoPagina": tamanho_pagina
+        }
+
+        try:
+            response = requests.get(url, params=params, headers=headers, timeout=20)
+            if response.status_code == 204:
+                break
             if response.status_code != 200:
                 logger.error(f"Erro na página {pagina} para {identificador_pncp}: Status {response.status_code}")
                 break
@@ -60,24 +70,27 @@ def baixar_itens_api(identificador_pncp, cnpj, ano, sequencial):
             data = response.json()
             lista = data if isinstance(data, list) else data.get('data', [])
 
+            if not lista:
+                break
+
             # Adiciona os itens da página atual
             for item in lista:
                 itens_para_inserir.append(BronzeItem(licitacao_identificador=identificador_pncp, payload=item))
 
-            # Verifica se há mais páginas
-            total_paginas = data.get('totalPaginas', 1) if isinstance(data, dict) else 1
-            if pagina >= total_paginas:
+            logger.info(f"📦 Itens {identificador_pncp} | Pág {pagina} | Itens: {len(lista)}")
+
+            # Se a página não veio com o tamanho máximo, significa que é a última página
+            if len(lista) < tamanho_pagina:
                 break
 
             pagina += 1
+            time.sleep(0.1)  # Pequeno delay para evitar rate limiting
 
-            # Pequeno delay para evitar rate limiting
-            time.sleep(0.1)
+        except Exception as e:
+            logger.error(f"Erro crítico na página {pagina} para {identificador_pncp}: {e}")
+            break
 
-        logger.info(f"Coletados {len(itens_para_inserir)} itens de {pagina} página(s) para {identificador_pncp}")
-
-    except Exception as e:
-        logger.error(f"Erro API Itens {identificador_pncp}: {e}")
+    logger.info(f"Coletados {len(itens_para_inserir)} itens de {pagina} página(s) para {identificador_pncp}")
     return itens_para_inserir
 
 def processar_licitacao_worker(db_engine, identificador_pncp, payload):
@@ -108,7 +121,8 @@ def processar_licitacao_worker(db_engine, identificador_pncp, payload):
         session.close()
 
 def handle_item_collector():
-    engine = create_engine(DB_CONNECTION_STRING, pool_size=5, max_overflow=10)
+    # Otimizado para servidor dedicado (Hetzner)
+    engine = create_engine(DB_CONNECTION_STRING, pool_size=10, max_overflow=20)
     Base.metadata.create_all(engine)
     
     Session = sessionmaker(bind=engine)

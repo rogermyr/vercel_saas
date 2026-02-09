@@ -3,3 +3,18 @@ venv/
 __pycache__/
 *.pyc
 .vscode/
+process_all.py
+query_item.py
+
+# Chaves SSH e arquivos sensíveis
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.ppk
+
+# Arquivos de backup e temporários
+*.bak
+*.tmp
+*.swp
+*~

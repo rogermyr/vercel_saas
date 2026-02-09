@@ -1,5 +1,8 @@
 Flask
+Flask-Mail==0.9.1
 requests
 sqlalchemy
 psycopg2-binary
 python-dotenv
+uvicorn
+sshtunnel

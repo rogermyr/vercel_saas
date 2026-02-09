@@ -1,0 +1,89 @@
+# Cron jobs para PNCP - Sistema de Licitações
+# Arquivo: /etc/cron.d/pncp-jobs
+#
+# IMPORTANTE: Este arquivo deve ser copiado para /etc/cron.d/ no servidor
+# com permissões 644 e proprietário root:root
+#
+# Instalação:
+#   sudo cp pncp-jobs.cron /etc/cron.d/pncp-jobs
+#   sudo chmod 644 /etc/cron.d/pncp-jobs
+#   sudo chown root:root /etc/cron.d/pncp-jobs
+#
+# Verificar sintaxe:
+#   sudo crontab -l -u pncp
+#   grep CRON /var/log/syslog
+#
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+MAILTO=seu-email@exemplo.com
+
+# Variáveis de ambiente (ajustar conforme necessário)
+# Nota: É melhor usar o .env no diretório do projeto
+
+# ============================================================================
+# JOB 1: PIPELINE COMPLETO - Crawler → Item Collector → Silver Processor
+# Executa às 8:00 AM todos os dias
+# Duração estimada: 35-105 minutos (soma das 3 etapas)
+# 
+# Este job executa 3 etapas em sequência:
+#   1. Crawler: coleta licitações do PNCP (10-30min)
+#   2. Item Collector: coleta itens das licitações (20-60min)
+#   3. Silver Processor: transforma dados Bronze → Silver (5-15min)
+#
+# Se qualquer etapa falhar, o pipeline para e não executa as seguintes.
+# ============================================================================
+0 8 * * * pncp cd /opt/pncp-jobs && /opt/pncp-jobs/venv/bin/python /opt/pncp-jobs/scripts/run_pipeline.py >> /var/log/pncp-jobs/cron-pipeline.log 2>&1
+
+# ============================================================================
+# JOB 2: EMAIL NOTIFICATIONS - Envia notificações aos usuários
+# Executa às 10:00 AM (2 horas após início do pipeline)
+# Duração estimada: 1-5 minutos
+#
+# O intervalo de 2 horas garante que o pipeline terá concluído antes
+# do envio de emails, mesmo em casos de alto volume de dados.
+# ============================================================================
+0 10 * * * pncp cd /opt/pncp-jobs && /opt/pncp-jobs/venv/bin/python /opt/pncp-jobs/scripts/run_emails.py >> /var/log/pncp-jobs/cron-emails.log 2>&1
+
+# ============================================================================
+# HEALTH CHECK - Verifica saúde dos jobs (opcional)
+# Executa a cada hora
+# ============================================================================
+# 0 * * * * pncp cd /opt/pncp-jobs && /opt/pncp-jobs/scripts/health_check.sh >> /var/log/pncp-jobs/health.log 2>&1
+
+# ============================================================================
+# NOTAS IMPORTANTES:
+# ============================================================================
+# 1. O usuário 'pncp' deve existir no sistema e ter permissões para:
+#    - Ler/escrever em /opt/pncp-jobs
+#    - Escrever em /var/log/pncp-jobs
+#    - Conectar ao PostgreSQL remoto
+#
+# 2. Criar usuário pncp:
+#    sudo useradd -r -s /bin/bash -d /opt/pncp-jobs -m pncp
+#
+# 3. Criar diretório de logs:
+#    sudo mkdir -p /var/log/pncp-jobs
+#    sudo chown pncp:pncp /var/log/pncp-jobs
+#
+# 4. O virtualenv deve estar em /opt/pncp-jobs/venv/
+#
+# 5. O arquivo .env deve estar em /opt/pncp-jobs/.env
+#
+# 6. Para receber emails de erros do cron, configure MAILTO
+#
+# 7. Testar jobs manualmente antes de habilitar no cron:
+#    sudo -u pncp /opt/pncp-jobs/venv/bin/python /opt/pncp-jobs/scripts/run_crawler.py
+#
+# 8. Monitorar execuções:
+#    tail -f /var/log/pncp-jobs/*.log
+#    grep CRON /var/log/syslog
+#
+# 9. Formato do cron: minuto hora dia mês dia_da_semana usuário comando
+#    Exemplos:
+#    0 3 * * *     = Todo dia às 3:00 AM
+#    30 3 * * *    = Todo dia às 3:30 AM
+#    0 */2 * * *   = A cada 2 horas
+#    0 9 * * 1-5   = Segunda a sexta às 9:00 AM
+#
+# ============================================================================
