@@ -61,7 +61,7 @@ def debug_vars():
     # Isso vai te mostrar se a Vercel carregou a variável
     return f"Status da Secret: {'Configurada' if os.getenv('CRON_SECRET') else 'Vazia'}"
 
-@app.route('/api/cron/sync-tudo')
+@app.route('/api/cron/sync-tudo', methods=['GET', 'POST'])
 def sync_tudo():
     logger.info("🔄 Iniciando Sincronização Geral")
     try:
@@ -80,14 +80,14 @@ def sync_tudo():
         logger.error(f"❌ Erro: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/api/cron/process-silver')
+@app.route('/api/cron/process-silver', methods=['GET', 'POST'])
 def process_silver():
     """Endpoint para processar dados Bronze -> Silver via cron job."""
     logger.info("🔄 Iniciando Processamento Silver")
     return handle_silver_processor()
 
 
-@app.route('/api/cron/send-email-notifications')
+@app.route('/api/cron/send-email-notifications', methods=['GET', 'POST'])
 def send_email_notifications():
     """
     Endpoint para enviar notificações por e-mail sobre novas licitações.
