@@ -1,0 +1,58 @@
+name: Deploy PNCP Jobs para Hetzner
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Permite executar manualmente
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            set -e
+            echo "🚀 Iniciando deploy..."
+            
+            cd /opt/pncp-jobs
+            
+            # Backup do .env
+            if [ -f .env ]; then
+              cp .env .env.backup
+              echo "✅ Backup do .env criado"
+            fi
+            
+            # Atualizar código
+            git pull origin main
+            echo "✅ Código atualizado"
+            
+            # Restaurar .env
+            if [ -f .env.backup ]; then
+              mv .env.backup .env
+              echo "✅ .env restaurado"
+            fi
+            
+            # Atualizar dependências
+            source venv/bin/activate
+            pip install -r requirements.txt --quiet
+            echo "✅ Dependências atualizadas"
+            
+            # Health check
+            python3 -c "from api.models import db; print('✅ Database OK')" || echo "⚠️ Database check falhou"
+            
+            echo "✅ Deploy concluído com sucesso!"
+            
+      - name: Notificar sucesso
+        if: success()
+        run: echo "✅ Deploy realizado com sucesso para Hetzner"
+        
+      - name: Notificar falha
+        if: failure()
+        run: echo "❌ Deploy falhou! Verifique os logs"

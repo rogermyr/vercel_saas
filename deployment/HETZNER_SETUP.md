@@ -10,9 +10,10 @@ Guia completo para configurar e hospedar os jobs agendados do sistema PNCP em um
 4. [Instalação de Dependências](#instalação-de-dependências)
 5. [Deploy da Aplicação](#deploy-da-aplicação)
 6. [Configuração dos Cron Jobs](#configuração-dos-cron-jobs)
-7. [Monitoramento e Logs](#monitoramento-e-logs)
-8. [Manutenção](#manutenção)
-9. [Troubleshooting](#troubleshooting)
+7. [Deploy Automático com GitHub Actions](#deploy-automático-com-github-actions)
+8. [Monitoramento e Logs](#monitoramento-e-logs)
+9. [Manutenção](#manutenção)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -284,7 +285,105 @@ sudo logrotate -d /etc/logrotate.d/pncp-jobs
 
 ---
 
-## 7. Monitoramento e Logs
+## 7. Deploy Automático com GitHub Actions
+
+### 7.1 Configurar Git no Servidor
+
+O deploy automático usa Git para atualizar o código. Configure isso primeiro:
+
+```bash
+# Como usuário pncp
+su - pncp
+cd /opt/pncp-jobs
+
+# Verificar se Git está configurado
+bash deployment/verify_git_setup.sh
+```
+
+**Se Git não estiver configurado:**
+
+```bash
+# Inicializar repositório
+git init
+git remote add origin https://github.com/SEU_USUARIO/SEU_REPO.git
+git branch -M main
+git fetch origin
+git reset --hard origin/main
+
+# Restaurar .env se necessário
+# (git reset sobrescreve arquivos locais)
+```
+
+### 7.2 Configurar Autenticação SSH do Servidor com GitHub
+
+Para que o `git pull` funcione automaticamente, configure SSH keys:
+
+```bash
+# Como usuário pncp
+ssh-keygen -t ed25519 -C "pncp@hetzner"
+# Aperte Enter 3 vezes (sem senha)
+
+# Copiar chave pública
+cat ~/.ssh/id_ed25519.pub
+```
+
+**Adicione a chave no GitHub:**
+1. Acesse https://github.com/settings/keys
+2. "New SSH key" → Cole a chave
+3. Título: "Hetzner PNCP Server"
+
+**Testar conexão:**
+```bash
+ssh -T git@github.com
+# Retorno esperado: "Hi username! You've successfully authenticated..."
+```
+
+### 7.3 Configurar GitHub Secrets
+
+No repositório GitHub, configure 3 secrets:
+
+1. **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+2. Adicione:
+   - `HETZNER_HOST`: IP do servidor (ex: `135.181.44.221`)
+   - `HETZNER_USERNAME`: usuário SSH (ex: `pncp`)
+   - `HETZNER_SSH_KEY`: sua chave privada SSH completa (da sua máquina local, não do servidor)
+
+### 7.4 Como Funciona
+
+Agora, sempre que você der `git push origin main`:
+
+1. GitHub Actions detecta o push
+2. Conecta no servidor via SSH
+3. Executa `git pull origin main`
+4. Preserva o arquivo `.env`
+5. Atualiza dependências: `pip install -r requirements.txt`
+6. Executa health check do banco
+7. Notifica sucesso/falha
+
+### 7.5 Executar Deploy Manual
+
+Você também pode executar o deploy manualmente:
+
+1. Acesse GitHub → **Actions**
+2. Selecione "Deploy PNCP Jobs para Hetzner"
+3. Clique **"Run workflow"**
+
+### 7.6 Monitorar Deploys
+
+- **Logs do GitHub Actions**: Repositório → Actions → Workflow → View logs
+- **Verificar no servidor**:
+  ```bash
+  ssh pncp@135.181.44.221
+  cd /opt/pncp-jobs
+  git log -1 --oneline  # Ver último commit
+  ```
+
+**Documentação completa**: Veja `.github/workflows/DEPLOYMENT_CHECKLIST.md`
+
+---
+
+## 8. Monitoramento e Logs
 
 ### 7.1 Testar Jobs Manualmente
 
@@ -351,9 +450,9 @@ psql "postgresql://usuario:senha@135.181.44.221:5432/pncp_db" -c "SELECT COUNT(*
 
 ---
 
-## 8. Manutenção
+## 9. Manutenção
 
-### 8.1 Atualizar Código
+### 9.1 Atualização do Código
 
 ```bash
 # Como usuário pncp
@@ -409,9 +508,9 @@ python scripts/run_crawler.py
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
-### 9.1 Cron não está executando
+### 10.1 Cron não está executando
 
 ```bash
 # Verificar serviço cron
@@ -429,7 +528,7 @@ cat /etc/cron.d/pncp-jobs
 sudo tail -100 /var/log/syslog | grep CRON
 ```
 
-### 9.2 Erro de Importação Python
+### 10.2 Erro de Importação Python
 
 ```bash
 # Verificar se o venv está correto
@@ -441,7 +540,7 @@ source venv/bin/activate
 pip install -r requirements.txt --force-reinstall
 ```
 
-### 9.3 Erro de Conexão com Banco de Dados
+### 10.3 Erro de Conexão com Banco de Dados
 
 ```bash
 # Testar conexão direta
@@ -455,7 +554,7 @@ ping 135.181.44.221
 telnet 135.181.44.221 5432
 ```
 
-### 9.4 Permissões Negadas
+### 10.4 Permissões Negadas
 
 ```bash
 # Corrigir permissões do diretório
@@ -468,7 +567,7 @@ sudo chown -R pncp:pncp /var/log/pncp-jobs
 sudo chmod 755 /var/log/pncp-jobs
 ```
 
-### 9.5 Job Travou / Não Termina
+### 10.5 Job Travou / Não Termina
 
 ```bash
 # Encontrar processo
@@ -481,7 +580,7 @@ kill -9 <PID>
 pgrep -f "run_crawler.py"
 ```
 
-### 9.6 Logs Muito Grandes
+### 10.6 Logs Muito Grandes
 
 ```bash
 # Ver tamanho dos logs
