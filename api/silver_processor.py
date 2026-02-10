@@ -574,14 +574,21 @@ def handle_silver_processor():
         
         logger.info(f"🎉 Processamento Silver concluído: {licitacoes_processadas} licitações, {itens_processados} itens, {licitacoes_removidas} licitações vencidas removidas")
         
-        return jsonify({
+        return {
             "status": "success",
             "message": "Silver processor executado com sucesso",
             "licitacoes_processadas": licitacoes_processadas,
             "itens_processados": itens_processados,
             "licitacoes_removidas": licitacoes_removidas
-        }), 200
+        }
         
     except Exception as e:
         logger.error(f"❌ Erro no handler Silver: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return {"status": "error", "message": str(e)}
+
+def handle_silver_processor():
+    """Handler Flask para a API (mantido para compatibilidade)."""
+    resultado = run_silver_processor()
+    if resultado["status"] == "error":
+        return jsonify(resultado), 500
+    return jsonify(resultado), 200

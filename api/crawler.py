@@ -323,6 +323,12 @@ def run_process(db_url):
 
     logger.info("✅ Todas as modalidades processadas.")
 
+def run_crawler_process():
+    """Executa o crawler sem retornar resposta Flask (para uso em scripts)."""
+    run_process(DB_CONNECTION_STRING)
+    return {"status": "success", "message": "Crawler finished"}
+
 def handle_crawler():
+    """Handler Flask para a API (mantido para compatibilidade)."""
     run_process(DB_CONNECTION_STRING)
     return jsonify({"status": "success", "message": "Crawler finished"}), 200

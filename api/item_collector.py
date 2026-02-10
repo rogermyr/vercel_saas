@@ -120,7 +120,8 @@ def processar_licitacao_worker(db_engine, identificador_pncp, payload):
     finally:
         session.close()
 
-def handle_item_collector():
+def run_item_collection_process():
+    """Executa coleta de itens sem retornar resposta Flask (para uso em scripts)."""
     # Otimizado para servidor dedicado (Hetzner)
     engine = create_engine(DB_CONNECTION_STRING, pool_size=10, max_overflow=20)
     Base.metadata.create_all(engine)
@@ -137,7 +138,8 @@ def handle_item_collector():
         session.close()
 
         if not lote:
-            return jsonify({"status": "idle", "message": "Fila vazia"}), 200
+            logger.info("✅ Nenhuma licitação pendente para coletar itens")
+            return {"status": "idle", "message": "Fila vazia", "processed": 0}
 
         logger.info(f"📦 Coletando itens de {len(lote)} licitações...")
 
@@ -146,10 +148,17 @@ def handle_item_collector():
             for future in as_completed(futures):
                 future.result()
 
-        return jsonify({"status": "success", "processed": len(lote)}), 200
+        return {"status": "success", "processed": len(lote)}
 
     except Exception as e:
         logger.error(f"Falha no coletor: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return {"status": "error", "message": str(e)}
     finally:
         engine.dispose()
+
+def handle_item_collector():
+    """Handler Flask para a API (mantido para compatibilidade)."""
+    resultado = run_item_collection_process()
+    if resultado["status"] == "error":
+        return jsonify(resultado), 500
+    return jsonify(resultado), 200

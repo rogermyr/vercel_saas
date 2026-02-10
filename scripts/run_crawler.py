@@ -13,7 +13,7 @@ from pathlib import Path
 # Adiciona o diretório pai ao PYTHONPATH
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from api.crawler import handle_crawler
+from api.crawler import run_crawler_process
 
 # Configuração de logging
 LOG_DIR = Path("/var/log/pncp-jobs")
@@ -41,7 +41,7 @@ def main():
     
     try:
         # Executa o crawler
-        resultado = handle_crawler()
+        resultado = run_crawler_process()
         
         duracao = (datetime.now() - inicio).total_seconds()
         logger.info("=" * 80)

@@ -13,7 +13,7 @@ from pathlib import Path
 # Adiciona o diretório pai ao PYTHONPATH
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from api.item_collector import handle_item_collector
+from api.item_collector import run_item_collection_process
 
 # Configuração de logging
 LOG_DIR = Path("/var/log/pncp-jobs")
@@ -41,7 +41,7 @@ def main():
     
     try:
         # Executa o coletor de itens
-        resultado = handle_item_collector()
+        resultado = run_item_collection_process()
         
         duracao = (datetime.now() - inicio).total_seconds()
         logger.info("=" * 80)

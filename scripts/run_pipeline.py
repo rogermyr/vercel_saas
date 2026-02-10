@@ -15,8 +15,8 @@ from pathlib import Path
 # Adiciona o diretório pai ao PYTHONPATH
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from api.crawler import handle_crawler
-from api.item_collector import handle_item_collector
+from api.crawler import run_crawler_process
+from api.item_collector import run_item_collection_process
 from api.silver_processor import run_silver_processor
 
 # Configuração de logging
@@ -46,7 +46,7 @@ def executar_pipeline():
     
     inicio_crawler = datetime.now()
     try:
-        resultado_crawler = handle_crawler()
+        resultado_crawler = run_crawler_process()
         duracao_crawler = (datetime.now() - inicio_crawler).total_seconds()
         logger.info(f"✅ Crawler concluído em {duracao_crawler:.2f}s ({duracao_crawler/60:.2f}min)")
         logger.info(f"📊 Resultado: {resultado_crawler}")
@@ -63,7 +63,7 @@ def executar_pipeline():
     
     inicio_items = datetime.now()
     try:
-        resultado_items = handle_item_collector()
+        resultado_items = run_item_collection_process()
         duracao_items = (datetime.now() - inicio_items).total_seconds()
         logger.info(f"✅ Item Collector concluído em {duracao_items:.2f}s ({duracao_items/60:.2f}min)")
         logger.info(f"📊 Resultado: {resultado_items}")
