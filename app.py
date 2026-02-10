@@ -125,7 +125,8 @@ def send_email_notifications():
         # Sem limite de emails no servidor dedicado (Hetzner)
         
         logger.info(f"📊 Processando {len(configs)} perfis...")
-            
+        
+        for config in configs:
             try:
                 config_id = config['config_id']
                 user_id = config['user_id']
