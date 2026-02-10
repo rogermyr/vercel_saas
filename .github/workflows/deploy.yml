@@ -4,12 +4,20 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Permite executar manualmente
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug - Testar conectividade
+        run: |
+          echo "🔍 Testando ping para ${{ secrets.HOST }}"
+          ping -c 3 ${{ secrets.HOST }} || echo "⚠️ Ping falhou (normal se ICMP bloqueado)"
+          
+          echo "🔍 Testando porta SSH 22"
+          nc -zv ${{ secrets.HOST }} 22 || echo "⚠️ Porta 22 não acessível"
+      
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -17,9 +25,13 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
+          timeout: 60s
+          command_timeout: 10m
           script: |
             set -e
-            echo "🚀 Iniciando deploy..."
+            echo "🚀 Conectado ao servidor!"
+            echo "📂 Diretório atual: $(pwd)"
+            echo "👤 Usuário: $(whoami)"
             
             cd /opt/pncp-jobs
             
@@ -30,6 +42,7 @@ jobs:
             fi
             
             # Atualizar código
+            echo "📥 Fazendo git pull..."
             git pull origin main
             echo "✅ Código atualizado"
             
@@ -40,19 +53,28 @@ jobs:
             fi
             
             # Atualizar dependências
+            echo "📦 Atualizando dependências..."
             source venv/bin/activate
-            pip install -r requirements.txt --quiet
+            pip install -r requirements.txt --upgrade --quiet
             echo "✅ Dependências atualizadas"
             
             # Health check
-            python3 -c "from api.models import db; print('✅ Database OK')" || echo "⚠️ Database check falhou"
+            echo "🔍 Verificando ambiente..."
+            python3 -c "from dotenv import load_dotenv; load_dotenv(); import os; print('✅ DATABASE_URL:', os.getenv('DATABASE_URL')[:30] + '...')" || echo "⚠️ Env check falhou"
             
-            echo "✅ Deploy concluído com sucesso!"
+            echo "🎉 Deploy concluído com sucesso!"
             
       - name: Notificar sucesso
         if: success()
-        run: echo "✅ Deploy realizado com sucesso para Hetzner"
+        run: |
+          echo "✅ Deploy realizado com sucesso!"
+          echo "📊 Jobs agendados: 08:00 (Pipeline) e 10:00 (Emails)"
         
       - name: Notificar falha
         if: failure()
-        run: echo "❌ Deploy falhou! Verifique os logs"
+        run: |
+          echo "❌ Deploy falhou!"
+          echo "Verifique:"
+          echo "1. Secret SSH_PRIVATE_KEY está correto?"
+          echo "2. Chave pública está em ~/.ssh/authorized_keys no servidor?"
+          echo "3. Servidor está rodando?"
