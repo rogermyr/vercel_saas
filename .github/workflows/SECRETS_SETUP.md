@@ -1,104 +1,114 @@
-# Configuração dos GitHub Secrets
+# GitHub Self-Hosted Runner - Sem Necessidade de Secrets
 
-Para habilitar o deploy automático para Hetzner, você precisa configurar 3 secrets no seu repositório GitHub.
+## ⚠️ ATUALIZAÇÃO IMPORTANTE
 
-## Passo a Passo
+Este projeto agora usa **GitHub Self-Hosted Runner** ao invés de SSH action.
 
-1. **Acesse as Configurações do Repositório**
-   - Vá para o seu repositório no GitHub
-   - Clique em **Settings** (Configurações)
-   - No menu lateral, clique em **Secrets and variables** → **Actions**
-   - Clique em **New repository secret**
+**Isso significa:**
+- ❌ **NÃO precisa mais configurar secrets SSH** (HETZNER_HOST, HETZNER_USERNAME, HETZNER_SSH_KEY)
+- ✅ Runner roda localmente no servidor Hetzner
+- ✅ Deploy é feito diretamente sem conexão SSH externa
+- ✅ Elimina problemas de timeout e firewall
 
-2. **Configure os 3 Secrets**
+---
 
-### Secret 1: HETZNER_HOST
-- **Name:** `HETZNER_HOST`
-- **Value:** O IP do seu servidor Hetzner
-  ```
-  135.181.44.221
-  ```
-  (ou o IP correto do seu servidor)
+## 🔧 Como Funciona Agora
 
-### Secret 2: HETZNER_USERNAME
-- **Name:** `HETZNER_USERNAME`
-- **Value:** O usuário SSH do servidor
-  ```
-  pncp
-  ```
+1. **Runner instalado no servidor** (`/opt/actions-runner`)
+2. **Runner monitora** repositório GitHub
+3. **Quando você faz push**, runner executa o workflow localmente
+4. **Deploy acontece** no próprio servidor (sem SSH)
 
-### Secret 3: HETZNER_SSH_KEY
-- **Name:** `HETZNER_SSH_KEY`
-- **Value:** A chave privada SSH completa
+---
 
-**Como obter a chave SSH:**
+## 📋 Configuração Necessária
 
-Na sua máquina local (onde você se conecta ao servidor):
+Ao invés de secrets, você precisa **instalar o runner no servidor**.
+
+### Siga o guia: [RUNNER_SETUP.md](RUNNER_SETUP.md)
+
+**Resumo rápido:**
 
 ```bash
-# Se você usa WSL/Linux
-cat ~/.ssh/id_rsa
+# 1. No servidor Hetzner
+ssh pncp@135.181.44.221
 
-# Se você usa Windows e tem a chave em outro lugar,
-# localize o arquivo da chave privada e copie todo o conteúdo
+# 2. Instalar runner
+sudo mkdir -p /opt/actions-runner
+sudo chown pncp:pncp /opt/actions-runner
+cd /opt/actions-runner
+
+# 3. Baixar GitHub Actions Runner
+curl -o actions-runner-linux-x64-2.311.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.311.0/actions-runner-linux-x64-2.311.0.tar.gz
+tar xzf ./actions-runner-linux-x64-2.311.0.tar.gz
+
+# 4. Obter token no GitHub
+# Vá em: https://github.com/SEU_USUARIO/vercel_saas/settings/actions/runners/new
+# Copie o comando ./config.sh com o token
+
+# 5. Configurar e instalar como serviço
+./config.sh --url https://github.com/USUARIO/vercel_saas --token TOKEN
+sudo ./svc.sh install pncp
+sudo ./svc.sh start
 ```
 
-**Importante:** Copie a chave privada COMPLETA, incluindo as linhas:
-```
------BEGIN OPENSSH PRIVATE KEY-----
-...conteúdo da chave...
------END OPENSSH PRIVATE KEY-----
-```
+---
 
-Ou se for formato RSA:
-```
------BEGIN RSA PRIVATE KEY-----
-...conteúdo da chave...
------END RSA PRIVATE KEY-----
-```
+## ✅ Vantagens do Self-Hosted Runner
 
-## Como Funciona
+### vs SSH Action (método antigo)
 
-Depois de configurar os secrets:
+| Aspecto | SSH Action | Self-Hosted Runner |
+|---------|------------|-------------------|
+| **Secrets necessários** | 3 (HOST, USERNAME, KEY) | 0 |
+| **Firewall** | Bloqueado por Hetzner | Sem problemas |
+| **Velocidade** | Latência de rede | Local, instantâneo |
+| **Configuração** | Chaves SSH complexas | Setup único simples |
+| **Timeout** | Comum (i/o timeout) | Nunca |
+| **Segurança** | Chave privada no GitHub | Runner local |
 
-1. **Deploy Automático:** Sempre que você der `git push` para a branch `main`, o GitHub Actions irá:
-   - Conectar no servidor via SSH
-   - Fazer `git pull` do código
-   - Manter o arquivo `.env` intacto
-   - Atualizar as dependências Python
-   - Fazer health check do banco de dados
+---
 
-2. **Deploy Manual:** Você também pode executar o deploy manualmente:
-   - Vá em **Actions** no GitHub
-   - Selecione **Deploy PNCP Jobs para Hetzner**
-   - Clique em **Run workflow**
+## 🔍 Verificar Runner Online
 
-## Verificação
+1. Acesse: `https://github.com/SEU_USUARIO/vercel_saas/settings/actions/runners`
+2. Você deve ver: **pncp-hetzner** com status **Idle** (verde)
+3. Se aparecer "Offline", reinicie: `sudo systemctl restart actions.runner.*.service`
 
-Após configurar os secrets, faça um teste:
+---
 
-```bash
-# Na sua máquina local
-git add .
-git commit -m "test: Testando deploy automático"
-git push origin main
+## 🚀 Fluxo de Deploy
+
+```mermaid
+graph LR
+    A[git push origin main] --> B[GitHub detecta push]
+    B --> C[Runner no servidor detecta]
+    C --> D[Checkout do código]
+    D --> E[rsync para /opt/pncp-jobs]
+    E --> F[pip install -r requirements.txt]
+    F --> G[Health check]
+    G --> H[Deploy concluído]
 ```
 
-Depois, acompanhe em:
-- GitHub → **Actions** → Veja o workflow executando
-- Verifique os logs do deploy
+---
 
-## Troubleshooting
+## 📚 Documentação
 
-**Erro de conexão SSH:**
-- Verifique se o IP está correto em `HETZNER_HOST`
-- Verifique se o usuário está correto em `HETZNER_USERNAME`
-- Confirme que a chave SSH está completa (com BEGIN/END)
+- **Setup completo**: [RUNNER_SETUP.md](RUNNER_SETUP.md)
+- **Checklist**: [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)
+- **Configuração servidor**: [../deployment/HETZNER_SETUP.md](../deployment/HETZNER_SETUP.md)
 
-**Erro de permissão:**
-- Certifique-se de que o usuário `pncp` tem permissão para executar git pull em `/opt/pncp-jobs`
-- Verifique se o diretório pertence ao usuário correto
+---
 
-**Git pull falha:**
-- Verifique se o git está inicializado no servidor
-- Confirme que o remote origin está configurado
+## 🔄 Migração do SSH Action
+
+Se você tinha o deploy configurado com SSH action antes:
+
+1. ✅ **Não precisa remover os secrets** (apenas não serão mais usados)
+2. ✅ **deploy.yml já foi atualizado** para usar `runs-on: self-hosted`
+3. ✅ **Instale o runner** seguindo [RUNNER_SETUP.md](RUNNER_SETUP.md)
+4. ✅ **Faça push** e veja funcionando!
+
+---
+
+**Última atualização**: 2026-02-10 - Migrado para self-hosted runner

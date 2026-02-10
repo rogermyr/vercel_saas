@@ -5,131 +5,68 @@ Use este checklist para configurar o deploy automático do PNCP Jobs.
 ## 📋 Checklist de Configuração
 
 ### 1. ✅ Arquivos Criados (Já Concluído)
-- [x] `.github/workflows/deploy.yml` - workflow de deploy
-- [x] `.github/workflows/SECRETS_SETUP.md` - guia de configuração
+- [x] `.github/workflows/deploy.yml` - workflow de deploy com self-hosted runner
+- [x] `.github/workflows/RUNNER_SETUP.md` - guia de instalação do runner
+- [x] `.github/workflows/DEPLOYMENT_CHECKLIST.md` - checklist completo
 - [x] `deployment/verify_git_setup.sh` - script de verificação
 
 ### 2. 🔧 Configuração no Servidor Hetzner
 
-#### 2.1. Conecte-se ao servidor
+#### 2.1. Instalar GitHub Self-Hosted Runner
+
+**IMPORTANTE:** Agora usamos self-hosted runner ao invés de SSH. Isso elimina problemas de firewall.
+
 ```bash
+# 1. Conecte-se ao servidor
 ssh pncp@135.181.44.221
+
+# 2. Crie diretório para o runner
+sudo mkdir -p /opt/actions-runner
+sudo chown pncp:pncp /opt/actions-runner
+cd /opt/actions-runner
+
+# 3. Baixe o GitHub Actions Runner
+curl -o actions-runner-linux-x64-2.311.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.311.0/actions-runner-linux-x64-2.311.0.tar.gz
+tar xzf ./actions-runner-linux-x64-2.311.0.tar.gz
+rm actions-runner-linux-x64-2.311.0.tar.gz
 ```
 
-#### 2.2. Navegue até o diretório
-```bash
-cd /opt/pncp-jobs
-```
+#### 2.2. Obter Token do GitHub (no navegador)
 
-#### 2.3. Verifique se o Git está inicializado
-```bash
-bash deployment/verify_git_setup.sh
-```
+1. Abra: `https://github.com/SEU_USUARIO/vercel_saas/settings/actions/runners/new`
+2. Selecione: **Linux** → **x64**
+3. Copie o comando `./config.sh --url...` com o token
 
-**Se o Git NÃO estiver configurado:**
-
-**Opção A: Clone do zero (RECOMENDADO se você tem o repo no GitHub)**
-```bash
-# Saia do diretório
-cd /opt
-
-# Faça backup do código atual
-mv pncp-jobs pncp-jobs.backup
-
-# Clone o repositório
-git clone https://github.com/SEU_USUARIO/SEU_REPO.git pncp-jobs
-
-# Entre no diretório
-cd pncp-jobs
-
-# Restaure o .env
-cp /opt/pncp-jobs.backup/.env .env
-
-# Recrie o virtualenv
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-**Opção B: Inicializar Git no diretório atual**
-```bash
-cd /opt/pncp-jobs
-
-# Inicializar git
-git init
-
-# Adicionar remote
-git remote add origin https://github.com/SEU_USUARIO/SEU_REPO.git
-
-# Configurar branch main
-git branch -M main
-
-# Fazer fetch
-git fetch origin
-
-# Resetar para o estado do repositório (CUIDADO: isso sobrescreve arquivos locais)
-# Faça backup do .env antes!
-cp .env .env.backup
-git reset --hard origin/main
-mv .env.backup .env
-```
-
-#### 2.4. Configure autenticação SSH do servidor com GitHub
-
-**Para que o git pull funcione, o servidor precisa autenticar com GitHub:**
+#### 2.3. Configurar Runner (no servidor)
 
 ```bash
-# No servidor Hetzner, como usuário pncp
-ssh-keygen -t ed25519 -C "pncp@hetzner"
-# Aperte Enter 3 vezes (sem senha)
+# Cole o comando copiado acima (com o token)
+./config.sh --url https://github.com/USUARIO/vercel_saas --token SEU_TOKEN
 
-# Copie a chave pública
-cat ~/.ssh/id_ed25519.pub
+# Pressione Enter em todas as perguntas (aceitar padrões)
+# Ou nomeie o runner: pncp-hetzner
 ```
 
-Agora adicione esta chave no GitHub:
-1. Acesse: https://github.com/settings/keys
-2. Clique em "New SSH key"
-3. Cole a chave copiada
-4. Título: "Hetzner PNCP Server"
-5. Salve
+#### 2.4. Instalar como Serviço
 
-**Teste a conexão:**
 ```bash
-ssh -T git@github.com
-# Deve retornar: "Hi username! You've successfully authenticated..."
+# Instalar serviço systemd
+sudo ./svc.sh install pncp
+
+# Iniciar serviço
+sudo ./svc.sh start
+
+# Verificar status
+sudo ./svc.sh status
+# Deve mostrar: active (running)
 ```
 
-### 3. 🔐 Configuração dos GitHub Secrets
+#### 2.5. Verificar Runner Online
 
-No GitHub (na sua máquina local):
+- Acesse: `https://github.com/SEU_USUARIO/vercel_saas/settings/actions/runners`
+- Deve aparecer com status **Idle** (verde)
 
-1. Acesse: `https://github.com/SEU_USUARIO/SEU_REPO/settings/secrets/actions`
-
-2. Adicione os 3 secrets:
-
-   **HETZNER_HOST**
-   ```
-   135.181.44.221
-   ```
-
-   **HETZNER_USERNAME**
-   ```
-   pncp
-   ```
-
-   **HETZNER_SSH_KEY**
-   - Na sua máquina local, copie o conteúdo da sua chave privada:
-     ```bash
-     # Windows WSL ou Linux
-     cat ~/.ssh/id_rsa
-     
-     # Ou se você usa outra chave
-     cat ~/.ssh/id_ed25519
-     ```
-   - Cole TODO o conteúdo (incluindo `-----BEGIN ... KEY-----` e `-----END ... KEY-----`)
-
-### 4. 📦 Commit e Push dos Arquivos
+### 3. 📦 Commit e Push dos Arquivos
 
 Na sua máquina local:
 
@@ -138,37 +75,38 @@ cd c:\projects\vercel_saas
 
 # Adicionar os novos arquivos
 git add .github/workflows/deploy.yml
-git add .github/workflows/SECRETS_SETUP.md
+git add .github/workflows/RUNNER_SETUP.md
 git add .github/workflows/DEPLOYMENT_CHECKLIST.md
 git add deployment/verify_git_setup.sh
 
 # Commit
-git commit -m "feat: Add GitHub Actions auto-deploy to Hetzner"
+git commit -m "feat: Setup self-hosted GitHub Actions runner"
 
 # Push para GitHub
 git push origin main
 ```
 
-### 5. 🎯 Testar o Deploy Automático
+### 4. 🎯 Testar o Deploy Automático
 
 1. **Acompanhe o workflow:**
    - Acesse: `https://github.com/SEU_USUARIO/SEU_REPO/actions`
    - Você deve ver o workflow "Deploy PNCP Jobs para Hetzner" executando
+   - Status deve ser verde se tudo funcionou
 
 2. **Verifique no servidor:**
    ```bash
    ssh pncp@135.181.44.221
    cd /opt/pncp-jobs
-   git log -1 --oneline
-   # Deve mostrar seu último commit
+   ls -la
+   # Verifique se os arquivos estão atualizados
    ```
 
 3. **Teste manual (opcional):**
    - No GitHub, vá em Actions
    - Selecione "Deploy PNCP Jobs para Hetzner"
-   - Clique "Run workflow"
+   - Clique "Run workflow" → "Run workflow"
 
-### 6. ⏰ Instalação do Cron (Se ainda não foi feito)
+### 5. ⏰ Instalação do Cron (Se ainda não foi feito)
 
 No servidor Hetzner:
 
@@ -192,15 +130,16 @@ tail -f /var/log/pncp-jobs/pipeline.log
 tail -f /var/log/pncp-jobs/emails.log
 ```
 
-### 7. ✅ Verificação Final
+### 6. ✅ Verificação Final
 
-- [ ] Git configurado no servidor (`git pull` funciona)
-- [ ] SSH keys configuradas (servidor → GitHub)
-- [ ] 3 GitHub Secrets configurados corretamente
+- [ ] GitHub Runner instalado no servidor
+- [ ] Runner aparece como "Idle" no GitHub
+- [ ] deploy.yml atualizado com `runs-on: self-hosted`
 - [ ] Workflow executa sem erros no GitHub Actions
 - [ ] Código atualizado no servidor após push
 - [ ] Cron jobs instalados e funcionando
 - [ ] Logs sendo gerados em `/var/log/pncp-jobs/`
+- [ ] rsync instalado no servidor (`sudo apt install rsync`)
 
 ## 🚀 Fluxo Normal de Desenvolvimento
 
@@ -213,30 +152,40 @@ git commit -m "Sua mensagem de commit"
 git push origin main
 
 # GitHub Actions automaticamente:
-# 1. Conecta no servidor
-# 2. Faz git pull
-# 3. Atualiza dependências
-# 4. Faz health check
-# 5. Notifica sucesso/falha
+# 1. Runner no servidor detecta novo commit
+# 2. Faz checkout do código
+# 3. Atualiza /opt/pncp-jobs via rsync
+# 4. Preserva .env
+# 5. Atualiza dependências Python
+# 6. Faz health check
+# 7. Notifica sucesso/falha
 ```
 
 ## 🆘 Troubleshooting
 
-**Erro: "git pull failed"**
-- Execute `bash deployment/verify_git_setup.sh` no servidor
-- Verifique se a chave SSH do servidor está no GitHub
+**Erro: "No runner matching labels: self-hosted"**
+- O runner não está online no servidor
+- Execute no servidor: `sudo systemctl status actions.runner.*.service`
+- Reinicie: `cd /opt/actions-runner && sudo ./svc.sh restart`
+- Verifique no GitHub: Settings → Actions → Runners (deve estar verde)
+
+**Erro: "rsync: command not found"**
+- Instale rsync no servidor: `sudo apt install -y rsync`
 
 **Erro: "Permission denied"**
 - Verifique se o usuário `pncp` é dono do diretório: `ls -la /opt/pncp-jobs`
 - Se não for, execute: `sudo chown -R pncp:pncp /opt/pncp-jobs`
 
-**Erro: "Host key verification failed"**
-- No servidor, execute: `ssh -T git@github.com` e aceite o fingerprint
-
 **Deploy não executa:**
-- Verifique se os secrets estão configurados corretamente
+- Verifique se o runner está "Idle" (verde) no GitHub
 - Confirme que o workflow está na branch `main`
 - Veja os logs em Actions → Workflow → Logs
+- Verifique logs do runner: `sudo journalctl -u actions.runner.*.service -f`
+
+**Runner offline após reboot:**
+- Verifique o serviço: `sudo systemctl status actions.runner.*.service`
+- Habilite autostart: `sudo systemctl enable actions.runner.*.service`
+- Reinicie: `sudo systemctl restart actions.runner.*.service`
 
 ## 📚 Documentação
 
