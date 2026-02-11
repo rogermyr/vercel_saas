@@ -7,6 +7,7 @@ Usado pelos cron jobs no Hetzner para enviar notificações aos usuários.
 import sys
 import os
 import logging
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -142,17 +143,45 @@ def enviar_notificacoes():
                 
                 mail.send(msg)
                 
-                # Registra os envios no banco
-                notification_service.mark_notifications_sent(user_id, config_id, matches)
-                
+                logger.info(f"✅ Email enviado para {email} ({len(matches)} licitações)")
                 emails_sent += 1
                 configs_processed += 1
                 
-                logger.info(f"✅ Email enviado para {email} ({len(matches)} licitações)")
+                # Registra cada licitação como enviada
+                for match in matches:
+                    try:
+                        notification_service.log_email_sent(
+                            user_id=user_id,
+                            config_id=config_id,
+                            licitacao_identificador=match['identificador_pncp'],
+                            matched_keywords=match.get('matched_keywords', []),
+                            status='sent'
+                        )
+                    except Exception as log_error:
+                        logger.error(f"⚠️ Erro ao registrar envio: {str(log_error)}")
+                
+                # Delay para evitar rate limit do Mailtrap (2 emails por segundo no plano free)
+                time.sleep(0.6)
                 
             except Exception as e:
                 emails_failed += 1
-                logger.error(f"❌ Erro ao processar perfil {config.get('nome_perfil', 'unknown')}: {str(e)}", exc_info=True)
+                logger.error(f"❌ Erro ao processar perfil {nome_perfil}: {str(e)}")
+                
+                # Tenta registrar a falha no banco
+                try:
+                    if matches:
+                        for match in matches:
+                            notification_service.log_email_sent(
+                                user_id=user_id,
+                                config_id=config_id,
+                                licitacao_identificador=match['identificador_pncp'],
+                                matched_keywords=match.get('matched_keywords', []),
+                                status='failed',
+                                error_message=str(e)
+                            )
+                except Exception as log_error:
+                    logger.error(f"⚠️ Erro ao registrar falha: {str(log_error)}")
+                
                 continue
         
         logger.info(f"📧 Resumo: {emails_sent} emails enviados, {emails_failed} falhas, {configs_processed} perfis processados")
