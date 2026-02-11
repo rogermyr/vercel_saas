@@ -8,6 +8,7 @@ import sys
 import os
 import logging
 import time
+import smtplib
 from datetime import datetime
 from pathlib import Path
 
@@ -133,7 +134,7 @@ def enviar_notificacoes():
                     licitacoes=matches
                 )
                 
-                # Envia o e-mail
+                # Envia o e-mail com retry em caso de rate limit
                 from flask_mail import Message
                 msg = Message(
                     subject=subject,
@@ -141,47 +142,75 @@ def enviar_notificacoes():
                     html=html_body
                 )
                 
-                mail.send(msg)
+                # Retry com exponential backoff para rate limiting
+                max_retries = 3
+                retry_delay = 2.0
+                email_sent_successfully = False
                 
-                logger.info(f"✅ Email enviado para {email} ({len(matches)} licitações)")
-                emails_sent += 1
-                configs_processed += 1
-                
-                # Registra cada licitação como enviada
-                for match in matches:
+                for attempt in range(max_retries):
                     try:
-                        notification_service.log_email_sent(
-                            user_id=user_id,
-                            config_id=config_id,
-                            licitacao_identificador=match['identificador_pncp'],
-                            matched_keywords=match.get('matched_keywords', []),
-                            status='sent'
-                        )
-                    except Exception as log_error:
-                        logger.error(f"⚠️ Erro ao registrar envio: {str(log_error)}")
+                        mail.send(msg)
+                        
+                        logger.info(f"✅ Email enviado para {email} ({len(matches)} licitações)")
+                        emails_sent += 1
+                        configs_processed += 1
+                        email_sent_successfully = True
+                        
+                        # Registra cada licitação como enviada
+                        for match in matches:
+                            try:
+                                notification_service.log_email_sent(
+                                    user_id=user_id,
+                                    config_id=config_id,
+                                    licitacao_identificador=match['identificador_pncp'],
+                                    matched_keywords=match.get('matched_keywords', []),
+                                    status='sent'
+                                )
+                            except Exception as log_error:
+                                logger.error(f"⚠️ Erro ao registrar envio: {str(log_error)}")
+                        
+                        # Delay aumentado para evitar rate limit (Mailtrap free: max 2/segundo)
+                        time.sleep(1.5)
+                        break  # Sucesso, sair do loop de retry
+                        
+                    except smtplib.SMTPDataError as smtp_error:
+                        if b'Too many emails per second' in smtp_error.args[1]:
+                            if attempt < max_retries - 1:
+                                logger.warning(f"⚠️ Rate limit atingido, aguardando {retry_delay}s antes de retry {attempt + 2}/{max_retries}")
+                                time.sleep(retry_delay)
+                                retry_delay *= 2  # Exponential backoff
+                            else:
+                                logger.error(f"❌ Falha após {max_retries} tentativas (rate limit): {smtp_error}")
+                                emails_failed += 1
+                        else:
+                            # Outro erro SMTP, não tentar novamente
+                            logger.error(f"❌ Erro SMTP ao processar perfil {nome_perfil}: {smtp_error}")
+                            emails_failed += 1
+                            break
+                    except Exception as other_error:
+                        logger.error(f"❌ Erro ao enviar email para {nome_perfil}: {other_error}")
+                        emails_failed += 1
+                        break
                 
-                # Delay para evitar rate limit do Mailtrap (2 emails por segundo no plano free)
-                time.sleep(0.6)
+                # Se falhou, registra no banco
+                if not email_sent_successfully:
+                    try:
+                        if matches:
+                            for match in matches:
+                                notification_service.log_email_sent(
+                                    user_id=user_id,
+                                    config_id=config_id,
+                                    licitacao_identificador=match['identificador_pncp'],
+                                    matched_keywords=match.get('matched_keywords', []),
+                                    status='failed',
+                                    error_message='Failed after retries'
+                                )
+                    except Exception as log_error:
+                        logger.error(f"⚠️ Erro ao registrar falha: {str(log_error)}")
                 
             except Exception as e:
                 emails_failed += 1
-                logger.error(f"❌ Erro ao processar perfil {nome_perfil}: {str(e)}")
-                
-                # Tenta registrar a falha no banco
-                try:
-                    if matches:
-                        for match in matches:
-                            notification_service.log_email_sent(
-                                user_id=user_id,
-                                config_id=config_id,
-                                licitacao_identificador=match['identificador_pncp'],
-                                matched_keywords=match.get('matched_keywords', []),
-                                status='failed',
-                                error_message=str(e)
-                            )
-                except Exception as log_error:
-                    logger.error(f"⚠️ Erro ao registrar falha: {str(log_error)}")
-                
+                logger.error(f"❌ Erro geral ao processar perfil {nome_perfil}: {str(e)}")
                 continue
         
         logger.info(f"📧 Resumo: {emails_sent} emails enviados, {emails_failed} falhas, {configs_processed} perfis processados")
