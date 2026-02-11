@@ -53,6 +53,30 @@ def enviar_notificacoes():
         template_folder=str(base_dir / 'templates')
     )
     
+    # Registra filtro customizado para formatação de moeda brasileira
+    @app.template_filter('currency_br')
+    def currency_br_filter(value):
+        """
+        Formata um número como moeda brasileira (R$ 1.234.567,89)
+        """
+        if value is None:
+            return "R$ 0,00"
+        
+        try:
+            # Converte para float se necessário
+            value = float(value)
+            
+            # Formata com 2 casas decimais e separador de milhar
+            formatted = f"{value:,.2f}"
+            
+            # Substitui vírgula e ponto (formato americano) para formato brasileiro
+            # 1,234,567.89 -> 1.234.567,89
+            formatted = formatted.replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
+            
+            return f"R$ {formatted}"
+        except (ValueError, TypeError):
+            return "R$ 0,00"
+    
     # Configurações de email do .env
     app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'sandbox.smtp.mailtrap.io')
     app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 2525))
