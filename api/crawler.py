@@ -29,9 +29,21 @@ logger = logging.getLogger(__name__)
 
 # --- CONFIGURAÇÕES DO NEGÓCIO ---
 MODALIDADES = {
+    1: "Leilão Eletrônico",
+    2: "Diálogo Competitivo",
+    3: "Concurso",
     4: "Concorrência - Eletrônica",
+    5: "Concorrência - Presencial",
     6: "Pregão - Eletrônico",
-    8: "Dispensa de Licitação"
+    7: "Pregão - Presencial",
+    8: "Dispensa",
+    9: "Inexigibilidade",
+    10: "Manifestação de Interesse",
+    11: "Pré-qualificação",
+    12: "Credenciamento",
+    13: "Leilão - Presencial",
+    14: "Inaplicabilidade da Licitação",
+    15: "Chamada pública"
 }
 
 MAX_WORKERS = 15  # Aumentado de 3 para 15 para mais paralelização
