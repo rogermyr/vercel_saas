@@ -39,6 +39,16 @@ jobs:
             echo "✅ .env restaurado"
           fi
           
+          # Atualizar variáveis de ambiente com valores dos secrets
+          echo "🔧 Atualizando variáveis de ambiente..."
+          echo "MAIL_SERVER=${{ secrets.MAIL_SERVER }}" >> .env
+          echo "MAIL_PORT=${{ secrets.MAIL_PORT }}" >> .env
+          echo "MAIL_USE_TLS=True" >> .env  # Valor fixo, ajuste se necessário
+          echo "MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}" >> .env
+          echo "MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}" >> .env
+          echo "MAIL_DEFAULT_SENDER=${{ secrets.MAIL_DEFAULT_SENDER }}" >> .env
+          echo "✅ Variáveis de ambiente atualizadas"
+          
           # Atualizar dependências
           echo "📦 Atualizando dependências..."
           source venv/bin/activate
