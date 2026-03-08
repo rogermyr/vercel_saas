@@ -276,10 +276,20 @@ class NotificationService:
                         'modalidade_nome': row.modalidade_nome,
                         'config_id': config_id,
                         'nome_perfil': nome_perfil,
+                        'item_id': None,
+                        'first_item_id': row.item_id if row.item_id else None,
                         'matched_keywords': set(),
                         'matched_items': [],
                         'objeto_matched': row.objeto_matched
                     }
+
+                # Guarda o primeiro item disponível para fallback (match apenas no objeto).
+                if row.item_id and not licitacoes_dict[lic_id]['first_item_id']:
+                    licitacoes_dict[lic_id]['first_item_id'] = row.item_id
+
+                # Quando houver match em item, prioriza esse item para link individual.
+                if row.item_id and row.item_matched and not licitacoes_dict[lic_id]['item_id']:
+                    licitacoes_dict[lic_id]['item_id'] = row.item_id
                 
                 # Se tem item e o item deu match, processa
                 if row.item_id and row.item_matched and len(licitacoes_dict[lic_id]['matched_items']) < 3:
@@ -316,6 +326,12 @@ class NotificationService:
             # Converte para lista e transforma set de keywords em lista
             matches = []
             for lic in licitacoes_dict.values():
+                # Se não houve item_matched, usa o primeiro item disponível da licitação.
+                if not lic['item_id']:
+                    lic['item_id'] = lic.get('first_item_id')
+
+                # Remove campo auxiliar interno antes de retornar.
+                lic.pop('first_item_id', None)
                 lic['matched_keywords'] = list(lic['matched_keywords'])
                 matches.append(lic)
             

@@ -46,6 +46,12 @@ MAILTO=seu-email@exemplo.com
 0 10 * * * pncp cd /opt/pncp-jobs && /opt/pncp-jobs/venv/bin/python /opt/pncp-jobs/scripts/run_emails.py >> /var/log/pncp-jobs/cron-emails.log 2>&1
 
 # ============================================================================
+# JOB 3: RESET DAILY QUOTAS - Reseta `daily_search_count` e `last_search_date`
+# Executa diariamente à meia-noite
+# ============================================================================
+0 0 * * * pncp cd /opt/pncp-jobs && /opt/pncp-jobs/venv/bin/python /opt/pncp-jobs/scripts/reset_quotas.py >> /var/log/pncp-jobs/cron-reset-quotas.log 2>&1
+
+# ============================================================================
 # HEALTH CHECK - Verifica saúde dos jobs (opcional)
 # Executa a cada hora
 # ============================================================================

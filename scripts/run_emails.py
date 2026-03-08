@@ -9,6 +9,7 @@ import os
 import logging
 import time
 import smtplib
+import locale
 from datetime import datetime
 from pathlib import Path
 
@@ -39,6 +40,34 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def format_currency_br(value):
+    """
+    Formata um número como moeda brasileira usando o módulo locale.
+    """
+    if value is None:
+        return "R$ 0,00"
+
+    try:
+        value = float(value)
+    except (ValueError, TypeError):
+        return "R$ 0,00"
+
+    # Tenta configurar locale pt-BR em ambientes Linux/Windows.
+    for loc in ('pt_BR.UTF-8', 'pt_BR.utf8', 'pt_BR', 'Portuguese_Brazil.1252'):
+        try:
+            locale.setlocale(locale.LC_ALL, loc)
+            break
+        except locale.Error:
+            continue
+
+    try:
+        return locale.currency(value, symbol=True, grouping=True)
+    except (ValueError, locale.Error):
+        # Fallback com separadores brasileiros para manter robustez.
+        formatted = f"{value:,.2f}".replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
+        return f"R$ {formatted}"
+
+
 def enviar_notificacoes():
     """
     Envia notificações por email.
@@ -55,29 +84,8 @@ def enviar_notificacoes():
         template_folder=str(base_dir / 'templates')
     )
     
-    # Registra filtro customizado para formatação de moeda brasileira
-    @app.template_filter('currency_br')
-    def currency_br_filter(value):
-        """
-        Formata um número como moeda brasileira (R$ 1.234.567,89)
-        """
-        if value is None:
-            return "R$ 0,00"
-        
-        try:
-            # Converte para float se necessário
-            value = float(value)
-            
-            # Formata com 2 casas decimais e separador de milhar
-            formatted = f"{value:,.2f}"
-            
-            # Substitui vírgula e ponto (formato americano) para formato brasileiro
-            # 1,234,567.89 -> 1.234.567,89
-            formatted = formatted.replace(',', 'TEMP').replace('.', ',').replace('TEMP', '.')
-            
-            return f"R$ {formatted}"
-        except (ValueError, TypeError):
-            return "R$ 0,00"
+    # Registra filtro customizado no ambiente Jinja2 do Flask.
+    app.jinja_env.filters['currency_br'] = format_currency_br
     
     # Configurações de email do .env
     app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'sandbox.smtp.mailtrap.io')
@@ -90,6 +98,7 @@ def enviar_notificacoes():
     
     mail = Mail(app)
     notification_service = NotificationService()
+    service = notification_service
     
     with app.app_context():
         # Busca todos os perfis ativos
@@ -116,9 +125,9 @@ def enviar_notificacoes():
                 logger.info(f"🔍 Processando perfil '{nome_perfil}' (user_id={user_id})")
                 
                 # Busca licitações que correspondem ao perfil
-                matches = notification_service.find_matches_for_config(config_id, user_id)
-                
-                if not matches:
+                licitacoes = service.find_matches_for_config(config_id, user_id)
+
+                if not licitacoes:
                     logger.info(f"ℹ️ Nenhuma licitação nova para o perfil '{nome_perfil}'")
                     configs_processed += 1
                     continue
@@ -126,12 +135,14 @@ def enviar_notificacoes():
                 # Prepara o e-mail
                 subject = f"Novas licitações para o perfil {nome_perfil}"
                 
+                nome_usuario = nome_completo or email.split('@')[0]
+
                 # Renderiza o template HTML
                 html_body = render_template(
                     'emails/perfil_matches.html',
                     nome_perfil=nome_perfil,
-                    nome_usuario=nome_completo or email.split('@')[0],
-                    licitacoes=matches
+                    nome_usuario=nome_usuario,
+                    licitacoes=licitacoes
                 )
                 
                 # Envia o e-mail com retry em caso de rate limit
@@ -151,13 +162,13 @@ def enviar_notificacoes():
                     try:
                         mail.send(msg)
                         
-                        logger.info(f"✅ Email enviado para {email} ({len(matches)} licitações)")
+                        logger.info(f"✅ Email enviado para {email} ({len(licitacoes)} licitações)")
                         emails_sent += 1
                         configs_processed += 1
                         email_sent_successfully = True
                         
                         # Registra cada licitação como enviada
-                        for match in matches:
+                        for match in licitacoes:
                             try:
                                 notification_service.log_email_sent(
                                     user_id=user_id,
@@ -195,8 +206,8 @@ def enviar_notificacoes():
                 # Se falhou, registra no banco
                 if not email_sent_successfully:
                     try:
-                        if matches:
-                            for match in matches:
+                        if licitacoes:
+                            for match in licitacoes:
                                 notification_service.log_email_sent(
                                     user_id=user_id,
                                     config_id=config_id,
